@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: nth-ls-db
       POSTGRES_USER: vortex332
-      POSTGRES_PASSWORD: hashim123
+      POSTGRES_PASSWORD: test123
     ports:
       - "5432:5432"
     volumes:
