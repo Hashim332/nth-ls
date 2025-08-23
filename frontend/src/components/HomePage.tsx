@@ -1,4 +1,4 @@
-import MainForm from "../../frontend/src/components/MainForm";
+import MainForm from "./MainForm";
 
 export function HomePage() {
   return (
