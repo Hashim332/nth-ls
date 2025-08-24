@@ -1,178 +1,228 @@
-# Express.js Project Structure Guide
+# Link Shortener (nth-ls)
 
-This document explains the different layers and folders in a typical Express.js application, specifically for a link shortener project.
+A clean, lightweight link shortener application built with React, TypeScript, and Express.js. Perfect for small to medium-scale deployments without heavy infrastructure requirements.
 
-## Project Architecture Overview
+## 🚀 API Setup Guide
+
+Follow these steps in order to set up your link shortener API from scratch:
+
+### 1. **Database Setup & Schema Design**
+
+First, design your database schema. Here's a recommended lightweight schema for PostgreSQL with Drizzle ORM:
+
+```typescript
+// backend/src/db/schema.ts
+import {
+  pgTable,
+  varchar,
+  timestamp,
+  integer,
+  boolean,
+  index,
+} from "drizzle-orm/pg-core";
+
+export const linksTable = pgTable(
+  "links",
+  {
+    id: varchar("id", { length: 21 }).primaryKey(), // Custom UUID/KSUID
+    shortCode: varchar("short_code", { length: 10 }).notNull().unique(),
+    originalUrl: varchar("original_url", { length: 2048 }).notNull(),
+    title: varchar("title", { length: 500 }), // Optional: page title
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    expiresAt: timestamp("expires_at"), // Optional: TTL
+    isActive: boolean("is_active").default(true).notNull(),
+    clickCount: integer("click_count").default(0).notNull(),
+    createdBy: varchar("created_by", { length: 50 }), // Optional: user tracking
+  },
+  (table) => ({
+    shortCodeIdx: index("short_code_idx").on(table.shortCode),
+    createdAtIdx: index("created_at_idx").on(table.createdAt),
+  })
+);
+
+export const clicksTable = pgTable(
+  "clicks",
+  {
+    id: varchar("id", { length: 21 }).primaryKey(),
+    linkId: varchar("link_id", { length: 21 }).references(() => linksTable.id),
+    ipAddress: varchar("ip_address", { length: 45 }), // IPv6 compatible
+    userAgent: varchar("user_agent", { length: 500 }),
+    referer: varchar("referer", { length: 500 }),
+    clickedAt: timestamp("clicked_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    linkIdIdx: index("link_id_idx").on(table.linkId),
+    clickedAtIdx: index("clicked_at_idx").on(table.clickedAt),
+  })
+);
+```
+
+### 2. **Core Utilities - UUID Generator**
+
+Create your custom UUID generator utility:
+
+```typescript
+// backend/src/utils/id-generator.ts
+export function generateId(): string {
+  // Your custom implementation here
+  // See resources below for implementation approaches
+}
+
+export function generateShortCode(length: number = 6): string {
+  const chars =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let result = "";
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+```
+
+### 3. **API Structure Setup**
+
+Create your API structure without a services directory:
 
 ```
-src/
-├── index.ts          # Main server entry point
-├── config/           # Configuration files
+backend/src/
+├── index.ts              # Server entry point
+├── db/
+│   ├── schema.ts         # Database schema
+│   └── connection.ts     # DB connection setup
 ├── api/
-│   ├── routes/       # HTTP route handlers
-│   ├── middleware/   # Express middleware
-│   └── helpers/      # Domain-specific utilities
-├── models/           # Data models/schemas
-├── services/         # Business logic layer
-└── utils/            # App-wide utilities
+│   ├── routes/           # Route handlers
+│   │   ├── links.ts      # Link CRUD operations
+│   │   └── analytics.ts  # Click tracking & stats
+│   ├── middleware/       # Express middleware
+│   │   ├── cors.ts
+│   │   ├── rateLimit.ts
+│   │   └── validation.ts
+│   └── helpers/          # Domain-specific utilities
+│       ├── url-validator.ts
+│       └── link-resolver.ts
+└── utils/               # App-wide utilities
+    ├── id-generator.ts
+    ├── logger.ts
+    └── constants.ts
 ```
 
-## Layer Responsibilities
+### 4. **Route Implementation Order**
 
-### **Utils** - Foundation Layer
+Implement routes in this order for logical development flow:
 
-**Purpose**: Generic, app-wide utilities used everywhere
+1. **POST /api/links** - Create short links
+2. **GET /:shortCode** - Redirect to original URL
+3. **GET /api/links/:id** - Get link details
+4. **GET /api/links** - List links (with pagination)
+5. **DELETE /api/links/:id** - Delete/deactivate links
+6. **GET /api/analytics/:id** - Get click analytics
 
-**Examples:**
-
-```typescript
-// utils/logger.ts
-export const logger = {
-  info: (msg: string) =>
-    console.log(`[INFO] ${new Date().toISOString()}: ${msg}`),
-  error: (msg: string) =>
-    console.error(`[ERROR] ${new Date().toISOString()}: ${msg}`),
-};
-
-// utils/constants.ts
-export const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
-export const SHORT_CODE_LENGTH = 6;
-export const MAX_URL_LENGTH = 2048;
-```
-
-### **Helpers** - Domain-Specific Tools
-
-**Purpose**: Simple utilities for specific domains (API operations)
-
-**Examples:**
+### 5. **Essential Middleware Setup**
 
 ```typescript
-// api/helpers/shortener.ts
-export function generateShortCode(): string {
-  return nanoid(6); // Just generates random string
-}
+// backend/src/index.ts
+import express from "express";
+import cors from "cors";
+import rateLimit from "express-rate-limit";
 
-// api/helpers/url-validator.ts
-export function isValidUrl(url: string): boolean {
-  return /^https?:\/\//.test(url); // Just validates format
-}
-```
+const app = express();
 
-### **Services** - Business Logic
+// Basic middleware
+app.use(express.json({ limit: "10mb" }));
+app.use(cors());
 
-**Purpose**: Orchestrate complex workflows using helpers, models, and utils
-
-**Examples:**
-
-```typescript
-// services/linkService.ts
-export async function createShortLink(originalUrl: string) {
-  // 1. Validate using helper
-  if (!isValidUrl(originalUrl)) {
-    logger.warn(`Invalid URL: ${originalUrl}`); // Uses util
-    throw new Error("Invalid URL");
-  }
-
-  // 2. Check existing links
-  const existing = await Link.findByUrl(originalUrl);
-  if (existing) return existing;
-
-  // 3. Generate unique code
-  let shortCode = generateShortCode(); // Uses helper
-  while (await Link.findByCode(shortCode)) {
-    shortCode = generateShortCode();
-  }
-
-  // 4. Create and save
-  const link = await Link.create({ originalUrl, shortCode });
-  logger.info(`Created link: ${shortCode}`); // Uses util
-
-  return {
-    shortCode,
-    originalUrl,
-    shortUrl: `${BASE_URL}/${shortCode}`, // Uses util constant
-  };
-}
-```
-
-### **Routes** - HTTP Interface
-
-**Purpose**: Handle HTTP requests/responses, delegate to services
-
-**Examples:**
-
-```typescript
-// api/routes/links.ts
-export const router = express.Router();
-
-router.post("/shorten", async (req, res) => {
-  try {
-    const result = await linkService.createShortLink(req.body.url);
-    res.json(result);
-  } catch (error) {
-    logger.error(`Shorten failed: ${error.message}`);
-    res.status(400).json({ error: error.message });
-  }
+// Rate limiting for link creation
+const createLinkLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: "Too many links created, try again later.",
 });
 
-router.get("/:code", async (req, res) => {
-  const originalUrl = await linkService.getOriginalUrl(req.params.code);
-  if (!originalUrl) return res.status(404).json({ error: "Link not found" });
-
-  // Track click
-  await analyticsService.recordClick(req.params.code, req.ip);
-  res.redirect(originalUrl);
-});
+app.use("/api/links", createLinkLimiter);
 ```
 
-## Key Principles
+### 6. **Environment Configuration**
 
-### **Separation of Concerns**
-
-- **Routes**: Handle HTTP only
-- **Services**: Business logic only
-- **Helpers**: Simple utilities only
-- **Utils**: Generic tools only
-
-### **Dependency Flow**
-
-```
-Routes → Services → Helpers/Models/Utils
+```bash
+# .env
+DATABASE_URL="postgresql://username:password@localhost:5432/linkshortener"
+PORT=3001
+BASE_URL="http://localhost:3001"
+NODE_ENV="development"
+CORS_ORIGIN="http://localhost:5173"
 ```
 
-### **Example Usage Chain**
+### 7. **Testing Strategy**
+
+Set up basic testing for core functionality:
+
+- URL validation
+- Short code generation (uniqueness)
+- Link creation and retrieval
+- Analytics tracking
+
+## 🔧 Custom UUID Generator Resources
+
+Since you'll be building your own UUID generator utility, here are essential resources:
+
+### **Algorithm Options:**
+
+1. **KSUID (K-Sortable Unique Identifier)**
+
+   - [KSUID Specification](https://github.com/segmentio/ksuid)
+   - Time-ordered, collision-resistant
+   - Good for distributed systems
+
+2. **Snowflake ID (Twitter's approach)**
+
+   - [Snowflake ID explained](https://blog.twitter.com/engineering/en_us/a/2010/announcing-snowflake)
+   - Timestamp + machine ID + sequence
+   - Excellent performance at scale
+
+3. **NanoID Alternative**
+   - [NanoID GitHub](https://github.com/ai/nanoid)
+   - Study the algorithm for custom implementation
+   - URL-safe, compact
+
+### **Implementation Resources:**
+
+- **[High-Performance ID Generation](https://instagram-engineering.com/sharding-ids-at-instagram-1cf5a71e5a5c)** - Instagram's approach
+- **[UUID Performance Comparison](https://sudhir.io/uuids-ulids)** - Benchmarks and trade-offs
+- **[Collision Probability Calculator](https://zelark.github.io/nano-id-cc/)** - For testing your implementation
+
+### **Security Considerations:**
+
+- **[Timing Attack Prevention](https://codahale.com/a-lesson-in-timing-attacks/)** - Important for secure ID generation
+- **[Cryptographically Secure Random](https://nodejs.org/api/crypto.html#crypto_crypto_randomuuid_options)** - Node.js crypto module
+
+### **Testing Your Implementation:**
 
 ```typescript
-// 1. Route receives request
-app.post("/shorten", async (req, res) => {
-  const result = await linkService.createShortLink(req.body.url); // Calls service
-  res.json(result);
-});
+// Test for uniqueness and performance
+function testIdGenerator() {
+  const ids = new Set();
+  const iterations = 1000000;
 
-// 2. Service orchestrates business logic
-export async function createShortLink(url: string) {
-  if (!isValidUrl(url)) throw new Error("Invalid"); // Uses helper
-  const code = generateShortCode(); // Uses helper
-  logger.info(`Creating: ${code}`); // Uses util
-  return await Link.create({ url, code }); // Uses model
+  console.time("Generation Time");
+  for (let i = 0; i < iterations; i++) {
+    const id = generateId();
+    if (ids.has(id)) {
+      console.error("Collision detected!", id);
+    }
+    ids.add(id);
+  }
+  console.timeEnd("Generation Time");
+  console.log(`Generated ${ids.size} unique IDs`);
 }
 ```
 
-## Benefits
+## 🏗️ Next Steps
 
-- **Testability**: Each layer can be tested independently
-- **Reusability**: Utils and helpers can be used anywhere
-- **Maintainability**: Business logic is centralized in services
-- **Scalability**: Easy to add new features without affecting existing code
-- **Clean Code**: Routes stay simple, complex logic lives in services
+1. Set up your database and run migrations
+2. Implement the UUID generator using the resources above
+3. Build the core API endpoints
+4. Add basic analytics tracking
+5. Implement frontend integration
+6. Deploy with your preferred hosting solution
 
-## When to Use Each Layer
-
-| **Use Utils for** | **Use Helpers for** | **Use Services for** |
-| ----------------- | ------------------- | -------------------- |
-| Logging           | URL validation      | Creating short links |
-| Constants         | Code generation     | User authentication  |
-| Date formatting   | Data sanitization   | Complex workflows    |
-| Generic functions | Domain utilities    | Business rules       |
-
-This structure scales from small projects to large applications while keeping code organized and maintainable.
+This setup gives you a solid foundation for a lightweight but robust link shortener that can handle moderate traffic without complex infrastructure.
