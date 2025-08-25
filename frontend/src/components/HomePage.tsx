@@ -1,4 +1,4 @@
-import MainForm from "./MainForm";
+import MainForm from "./MainForm/MainForm";
 
 export function HomePage() {
   return (

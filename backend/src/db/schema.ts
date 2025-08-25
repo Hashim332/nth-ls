@@ -1,10 +1,13 @@
-import { integer, pgTable, varchar } from "drizzle-orm/pg-core";
+import { integer, pgTable, varchar, timestamp } from "drizzle-orm/pg-core";
 
-export const usersTable = pgTable("users", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  name: varchar({ length: 255 }).notNull(),
-  age: integer().notNull(),
-  email: varchar({ length: 255 }).notNull().unique(),
+export const linksTable = pgTable("links", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(), // id (FROM POSTGRES)
+  hash: varchar({ length: 255 }).notNull().unique(), // hash of the link (FROM SERVER)
+  link: varchar({ length: 255 }).notNull(), // the link (FROM USER)
+  clerkUserId: varchar({ length: 255 }).notNull().unique(), // the user id from clerk (FROM SERVER)
+  lifeTime: integer().notNull(), // the life time of the link (FROM USER)
+  createdAt: timestamp().notNull().defaultNow(), // the date and time the link was created (FROM POSTGRES)
+  numberOfClicks: integer().notNull().default(0), // the number of clicks on the link (FROM SERVER)
 });
 
 /*
