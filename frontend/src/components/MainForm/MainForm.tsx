@@ -23,6 +23,16 @@ export default function MainForm() {
     return pattern.test(url); // BOOLEAN
   }
 
+  function handleSubmit() {
+    if (isValidUrl(link)) {
+      toast.success("Valid URL");
+      setValidUrl(true);
+    } else {
+      toast.warning("Invalid URL, please try again");
+      setValidUrl(false);
+    }
+  }
+
   return (
     <div className="mt-10 bg-secondary rounded-lg p-6 shadow-lg">
       <div className="flex flex-col space-y-8">
@@ -39,13 +49,7 @@ export default function MainForm() {
 
           <Button
             className="w-full text-lg font-bold hover:bg-primary/80 cursor-pointer"
-            onClick={() => {
-              if (isValidUrl(link)) {
-                console.log("isValidUrl -> ", validUrl);
-              } else {
-                toast.warning("Invalid URL, please try again");
-              }
-            }}
+            onClick={handleSubmit}
           >
             Shorten
           </Button>
