@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Button } from "../ui/button";
 import { toast, Toaster } from "sonner";
+import { useMutation } from "@tanstack/react-query";
 
 export default function MainForm() {
   const [link, setLink] = useState("");
   const [validUrl, setValidUrl] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   console.log("link -> ", link); // FIXME:
 
@@ -24,12 +26,28 @@ export default function MainForm() {
   }
 
   function handleSubmit() {
-    if (isValidUrl(link)) {
-      toast.success("Valid URL");
-      setValidUrl(true);
-    } else {
+    // VALIDATION
+    if (!isValidUrl(link) || isSubmitting) {
       toast.warning("Invalid URL, please try again");
       setValidUrl(false);
+      return;
+    }
+
+    // SUBMISSION
+    setIsSubmitting(true);
+    try {
+      const mutation = useMutation({
+        mutationFn: async (url: string) => {
+          return fetch(`${import.meta.env.VITE_API_URL}/api/shorten`, {
+            method: "POST",
+            body: JSON.stringify({ url }),
+          });
+        },
+      });
+    } catch (e) {
+      toast.error("Failed to shorten URL, please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
