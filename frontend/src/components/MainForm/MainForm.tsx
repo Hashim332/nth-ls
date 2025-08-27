@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "../ui/button";
 import { toast, Toaster } from "sonner";
 import { useMutation } from "@tanstack/react-query";
+import { getUrl } from "../../services/urlService";
 
 export default function MainForm() {
   const [link, setLink] = useState("");
@@ -33,40 +34,25 @@ export default function MainForm() {
       return;
     }
 
-    // SUBMISSION
-    setIsSubmitting(true);
-    try {
-      const mutation = useMutation({
-        mutationFn: async (url: string) => {
-          return fetch(`${import.meta.env.VITE_API_URL}/api/shorten`, {
-            method: "POST",
-            body: JSON.stringify({ url }),
-          });
-        },
-      });
-    } catch (e) {
-      toast.error("Failed to shorten URL, please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    const mutation = useMutation({ mutationFn: getUrl });
   }
 
   return (
-    <div className="mt-10 bg-secondary rounded-lg p-6 shadow-lg">
-      <div className="flex flex-col space-y-8">
-        <div className="flex flex-col gap-4">
+    <div className='mt-10 bg-secondary rounded-lg p-6 shadow-lg'>
+      <div className='flex flex-col space-y-8'>
+        <div className='flex flex-col gap-4'>
           {/* INPUT */}
-          <h1 className="text-2xl font-bold">Enter your link</h1>
+          <h1 className='text-2xl font-bold'>Enter your link</h1>
           <input
-            type="text"
-            placeholder="https://www.something.com"
-            className="border outline-none p-2 rounded-md w-full"
+            type='text'
+            placeholder='https://www.something.com'
+            className='border outline-none p-2 rounded-md w-full'
             value={link}
             onChange={(e) => setLink(e.target.value)}
           />
 
           <Button
-            className="w-full text-lg font-bold hover:bg-primary/80 cursor-pointer"
+            className='w-full text-lg font-bold hover:bg-primary/80 cursor-pointer'
             onClick={handleSubmit}
           >
             Shorten
@@ -76,9 +62,9 @@ export default function MainForm() {
 
           {/* OUTPUT */}
         </div>
-        <div className="">
-          <h1 className="text-2xl font-bold">Your shortened link</h1>
-          <p className="text-lg font-bold">[return link here]</p>
+        <div className=''>
+          <h1 className='text-2xl font-bold'>Your shortened link</h1>
+          <p className='text-lg font-bold'>[return link here]</p>
         </div>
       </div>
     </div>
