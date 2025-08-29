@@ -1,4 +1,5 @@
 import express from "express";
+import { BASE_URL, generateShortCode } from "../../utils/utils";
 
 const router = express.Router();
 
@@ -10,7 +11,10 @@ router.post("/shorten", (req, res) => {
     return;
   }
 
-  res.status(200).json({ url, something: "endpoint is working" });
+  const shortCode = generateShortCode();
+  const shortUrl = `${BASE_URL}/${shortCode}`;
+  res.status(200).json({ shortUrl });
+  console.log(`new url: ${shortUrl}`);
 });
 
 export default router;

@@ -3,6 +3,6 @@ import shortenRouter from "./shorten.route";
 
 const router = Router();
 
-router.use("/", shortenRouter);
+router.use("/v1/api", shortenRouter);
 
 export default router;

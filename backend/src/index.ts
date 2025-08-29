@@ -2,7 +2,7 @@ import express from "express";
 import "dotenv/config";
 import cors from "cors";
 import { drizzle } from "drizzle-orm/node-postgres";
-import routes from "./routes";
+import routes from "./api/routes";
 
 const app = express();
 const port = process.env.PORT || 3000;
