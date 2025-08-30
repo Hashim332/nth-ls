@@ -4,6 +4,7 @@ import { toast, Toaster } from "sonner";
 import { useMutation } from "@tanstack/react-query";
 import { getUrl } from "../../services/urlService";
 import { Copy, X } from "lucide-react";
+import { isValidUrl } from "../../utils/utils";
 
 export default function MainForm() {
   const [link, setLink] = useState("");
@@ -31,27 +32,12 @@ export default function MainForm() {
     },
   });
 
-  function isValidUrl(url: string) {
-    const pattern = new RegExp(
-      "^(https?:\\/\\/)?" + // protocol
-        "((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|" + // domain name
-        "((\\d{1,3}\\.){3}\\d{1,3}))" + // OR ip (v4) address
-        "(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*" + // port and path
-        "(\\?[;&a-z\\d%_.~+=-]*)?" + // query string
-        "(\\#[-a-z\\d_]*)?$",
-      "i"
-    ); // fragment locator
-
-    setValidUrl(pattern.test(url)); // BOOLEAN
-    return pattern.test(url); // BOOLEAN
-  }
-
-  // TODO: ADD enter key to submit
   function handleSubmit() {
-    // VALIDATION
-    if (!isValidUrl(link)) {
+    const isUrlValid = isValidUrl(link);
+    setValidUrl(isUrlValid);
+
+    if (!isUrlValid) {
       toast.warning("Invalid URL, please try again");
-      setValidUrl(false);
       return;
     }
 
@@ -73,6 +59,11 @@ export default function MainForm() {
             className="border outline-none p-2 rounded-md w-full"
             value={link}
             onChange={(e) => setLink(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !mutation.isPending) {
+                handleSubmit();
+              }
+            }}
           />
 
           <Button
@@ -101,7 +92,6 @@ export default function MainForm() {
                   </p>
                 </div>
 
-                {/* FIXME: ADD COPY TO CLIPBOARD */}
                 <Button
                   variant="ghost"
                   size="sm"
