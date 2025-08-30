@@ -1,12 +1,21 @@
 import { useState } from "react";
 import { Button } from "../ui/button";
 import { toast, Toaster } from "sonner";
+import { useMutation } from "@tanstack/react-query";
+import { getUrl } from "../../services/urlService";
+import { Copy, X } from "lucide-react";
 
 export default function MainForm() {
   const [link, setLink] = useState("");
   const [validUrl, setValidUrl] = useState(false);
+  const [shortenedUrl, setShortenedUrl] = useState("");
 
-  console.log("link -> ", link); // FIXME:
+  const mutation = useMutation({
+    mutationFn: getUrl,
+    onSuccess: (response) => {
+      setShortenedUrl(response.data.shortUrl);
+    },
+  });
 
   function isValidUrl(url: string) {
     const pattern = new RegExp(
@@ -23,14 +32,19 @@ export default function MainForm() {
     return pattern.test(url); // BOOLEAN
   }
 
+  // TODO: ADD enter key to submit
   function handleSubmit() {
-    if (isValidUrl(link)) {
-      toast.success("Valid URL");
-      setValidUrl(true);
-    } else {
+    // VALIDATION
+    if (!isValidUrl(link)) {
       toast.warning("Invalid URL, please try again");
       setValidUrl(false);
+      return;
     }
+
+    mutation.mutate(link);
+    setLink("");
+    setShortenedUrl("");
+    setValidUrl(false);
   }
 
   return (
@@ -54,13 +68,38 @@ export default function MainForm() {
             Shorten
           </Button>
 
+          <div>{mutation.isPending && <p>Loading...</p>}</div>
+
           <Toaster />
 
           {/* OUTPUT */}
         </div>
-        <div className="">
+        <div className="space-y-4">
           <h1 className="text-2xl font-bold">Your shortened link</h1>
-          <p className="text-lg font-bold">[return link here]</p>
+          {mutation.isSuccess && (
+            <div className="bg-background border border-border rounded-lg p-4 shadow-sm">
+              <div className="flex items-center">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-muted-foreground mb-1">
+                    Shortened URL:
+                  </p>
+                  <p className="text-primary font-mono text-sm break-all">
+                    {shortenedUrl}
+                  </p>
+                </div>
+
+                {/* FIXME: ADD COPY TO CLIPBOARD */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-3 flex-shrink-0 hover:bg-primary/10 hover:text-primary cursor-pointer"
+                  title="Copy to clipboard"
+                >
+                  <Copy className="h-4 w-4 " />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
