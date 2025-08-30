@@ -15,6 +15,20 @@ export default function MainForm() {
     onSuccess: (response) => {
       setShortenedUrl(response.data.shortUrl);
     },
+    onError: (error: any) => {
+      if (error.code === "ECONNABORTED" || error.message.includes("timeout")) {
+        toast.error("Request timed out. Please try again.");
+      } else if (
+        error.code === "ERR_NETWORK" ||
+        error.message.includes("fetch")
+      ) {
+        toast.error(
+          "Cannot connect to server. Please check if the backend is running."
+        );
+      } else {
+        toast.error("An error occurred. Please try again.");
+      }
+    },
   });
 
   function isValidUrl(url: string) {
@@ -62,13 +76,12 @@ export default function MainForm() {
           />
 
           <Button
-            className="w-full text-lg font-bold hover:bg-primary/80 cursor-pointer"
+            className="w-full text-lg font-bold hover:bg-primary/80 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handleSubmit}
+            disabled={mutation.isPending}
           >
-            Shorten
+            {mutation.isPending ? "Shortening..." : "Shorten"}
           </Button>
-
-          <div>{mutation.isPending && <p>Loading...</p>}</div>
 
           <Toaster />
 
@@ -94,6 +107,10 @@ export default function MainForm() {
                   size="sm"
                   className="ml-3 flex-shrink-0 hover:bg-primary/10 hover:text-primary cursor-pointer"
                   title="Copy to clipboard"
+                  onClick={() => {
+                    navigator.clipboard.writeText(shortenedUrl);
+                    toast.success("Copied to clipboard");
+                  }}
                 >
                   <Copy className="h-4 w-4 " />
                 </Button>
